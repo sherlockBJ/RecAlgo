@@ -1,0 +1,60 @@
+# BPR config for the ml-100k dataset.
+# Used by both the from-scratch implementation (custom_models.recall.BPR)
+# and RecBole's built-in BPR, so the two can be compared on equal footing.
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters
+# ---------------------------------------------------------------------------
+embedding_size: 64        # latent dimension of user/item vectors
+reg_weight: 1e-4          # L2 regularization weight (lambda in the paper)
+
+# ---------------------------------------------------------------------------
+# Dataset: which columns to load from ml-100k
+# ---------------------------------------------------------------------------
+load_col:
+  inter: [user_id, item_id, rating, timestamp]
+
+# Treat ratings as implicit feedback: keep interactions with rating >= 3
+# as positive signals (BPR is defined on implicit feedback).
+val_interval:
+  rating: "[3,inf)"
+unused_col:
+  inter: [rating, timestamp]
+
+# Drop users/items with too few interactions for stable evaluation.
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[5,inf)"
+
+# ---------------------------------------------------------------------------
+# Training
+# ---------------------------------------------------------------------------
+epochs: 300
+train_batch_size: 2048
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:
+  distribution: uniform
+  sample_num: 1            # one negative item per positive (the j in BPR)
+
+# Early stopping on the validation metric.
+stopping_step: 10
+loss_decimal_place: 4
+
+# ---------------------------------------------------------------------------
+# Evaluation: leave-one-out style split + top-k ranking metrics
+# ---------------------------------------------------------------------------
+eval_args:
+  split: {RS: [0.8, 0.1, 0.1]}   # random 80/10/10 train/valid/test split
+  group_by: user
+  order: RO
+  mode: full                      # rank against all items (full sort)
+metrics: [Recall, MRR, NDCG, Hit, Precision]
+topk: [10, 20]
+valid_metric: NDCG@10
+eval_batch_size: 4096
+
+# ---------------------------------------------------------------------------
+# Reproducibility
+# ---------------------------------------------------------------------------
+seed: 2024
+reproducibility: true

@@ -1,0 +1,61 @@
+# LightGCN config for the ml-100k dataset (local correctness check).
+# Used by both the from-scratch implementation (custom_models.recall.LightGCN)
+# and RecBole's built-in LightGCN, so the two can be compared on equal footing.
+# This is the *validation* config — small data. Paper-aligned Gowalla/Yelp2018
+# configs live separately and are meant for the GPU node.
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters
+# ---------------------------------------------------------------------------
+embedding_size: 64        # dimension of the 0-th layer embeddings e^(0)
+n_layers: 3               # K: number of light graph-convolution layers (paper default)
+reg_weight: 1e-4          # L2 regularization on e^(0)
+
+# ---------------------------------------------------------------------------
+# Dataset: which columns to load from ml-100k
+# ---------------------------------------------------------------------------
+load_col:
+  inter: [user_id, item_id, rating, timestamp]
+
+# Treat ratings as implicit feedback: keep rating >= 3 as positive signals.
+val_interval:
+  rating: "[3,inf)"
+unused_col:
+  inter: [rating, timestamp]
+
+# Drop users/items with too few interactions for stable evaluation.
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[5,inf)"
+
+# ---------------------------------------------------------------------------
+# Training (BPR pairwise loss, same as the paper)
+# ---------------------------------------------------------------------------
+epochs: 300
+train_batch_size: 2048
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:
+  distribution: uniform
+  sample_num: 1            # one negative item per positive
+
+stopping_step: 10
+loss_decimal_place: 4
+
+# ---------------------------------------------------------------------------
+# Evaluation: random 80/10/10 split + top-k ranking metrics
+# ---------------------------------------------------------------------------
+eval_args:
+  split: {RS: [0.8, 0.1, 0.1]}
+  group_by: user
+  order: RO
+  mode: full
+metrics: [Recall, MRR, NDCG, Hit, Precision]
+topk: [10, 20]
+valid_metric: NDCG@10
+eval_batch_size: 4096
+
+# ---------------------------------------------------------------------------
+# Reproducibility
+# ---------------------------------------------------------------------------
+seed: 2024
+reproducibility: true

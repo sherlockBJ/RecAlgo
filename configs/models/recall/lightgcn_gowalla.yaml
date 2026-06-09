@@ -1,0 +1,56 @@
+# LightGCN config for Gowalla — aligned with the paper's Table 3.
+#
+# This consumes the LightGCN authors' FIXED train/test split (prepared by
+# scripts/prepare_gowalla.py into RecBole benchmark atomic files), so the test
+# metric is directly comparable to the paper:
+#     Gowalla, 3 layers:  Recall@20 = 0.1830,  NDCG@20 = 0.1554
+#
+# Intended to run on the GPU node (Gowalla ~1M interactions, 1000 epochs).
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters (paper settings)
+# ---------------------------------------------------------------------------
+embedding_size: 64        # paper uses 64-dim embeddings
+n_layers: 3               # K = 3 light graph-convolution layers (Table 3 row)
+reg_weight: 1e-4          # L2 coefficient (paper sweeps 1e-4 on Gowalla)
+
+# ---------------------------------------------------------------------------
+# Pre-split benchmark files: data/gowalla/gowalla.{train,valid,test}.inter
+# Using the fixed split is what makes the numbers comparable to the paper.
+# ---------------------------------------------------------------------------
+benchmark_filename: [train, valid, test]
+load_col:
+  inter: [user_id, item_id]
+
+# ---------------------------------------------------------------------------
+# Training (BPR loss; paper trains long with early stopping)
+# ---------------------------------------------------------------------------
+epochs: 1000
+train_batch_size: 2048
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:
+  distribution: uniform
+  sample_num: 1
+
+stopping_step: 10
+loss_decimal_place: 4
+
+# ---------------------------------------------------------------------------
+# Evaluation: full-sort ranking, top-20 (paper's headline cutoff)
+# ---------------------------------------------------------------------------
+eval_args:
+  split: {RS: [1.0, 0.0, 0.0]}   # ignored under benchmark_filename, but keep valid for schema
+  group_by: user
+  order: RO
+  mode: full
+metrics: [Recall, NDCG]
+topk: [20]
+valid_metric: NDCG@20
+eval_batch_size: 8192
+
+# ---------------------------------------------------------------------------
+# Reproducibility
+# ---------------------------------------------------------------------------
+seed: 2024
+reproducibility: true
