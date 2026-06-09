@@ -36,6 +36,11 @@ train_neg_sample_args:
 stopping_step: 10
 loss_decimal_place: 4
 
+# Full-sort eval is ~540s vs ~22s training on Gowalla, so evaluating every epoch
+# dominates wall-clock. Evaluate every 20 epochs instead (stopping_step counts
+# evaluations, so patience = 10 evals = 200 epochs of no improvement).
+eval_step: 20
+
 # ---------------------------------------------------------------------------
 # Evaluation: full-sort ranking, top-20 (paper's headline cutoff)
 # ---------------------------------------------------------------------------
@@ -47,7 +52,9 @@ eval_args:
 metrics: [Recall, NDCG]
 topk: [20]
 valid_metric: NDCG@20
-eval_batch_size: 8192
+# A100-80G: full-sort score matrix is batch_user x n_items. 40960 x 40982 x 4B
+# ~= 6.7 GB, well within budget; the old 8192 left the GPU massively underused.
+eval_batch_size: 40960
 
 # ---------------------------------------------------------------------------
 # Reproducibility
