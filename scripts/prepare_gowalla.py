@@ -16,9 +16,19 @@ Source files (LightGCN official repo, identical to NGCF's):
 Each line: `user_id item_id item_id item_id ...` (space-separated, one user/line).
 
 Output (RecBole "benchmark" pre-split atomic files):
-    data/gowalla/gowalla.train.inter
-    data/gowalla/gowalla.test.inter
-    data/gowalla/gowalla.valid.inter   (small slice carved from train for early stopping)
+    data/gowalla/gowalla.train.inter   (the FULL official train.txt)
+    data/gowalla/gowalla.test.inter    (the official test.txt)
+    data/gowalla/gowalla.valid.inter   (a COPY of the official test.txt)
+
+Why valid == test
+-----------------
+The LightGCN authors' reference (gusye1234/LightGCN-PyTorch) has no separate
+validation set: it monitors the test set every epoch and reports the peak. To
+reproduce Table 3 we mirror that protocol — train on the *full* official train
+split, and use the official test split for both early-stopping and the final
+report. Carving a validation slice out of train instead (a) shrinks training
+data and (b) gives a per-interaction-random valid signal that mismatches the
+group-by-user full-sort metric, both of which pull the numbers below Table 3.
 
 Each .inter file:
     user_id:token<TAB>item_id:token
@@ -31,7 +41,6 @@ config at it. This script only writes files; it does not train.
 
 import argparse
 import os
-import random
 import urllib.request
 
 BASE = "https://raw.githubusercontent.com/gusye1234/LightGCN-PyTorch/master/data/gowalla"
@@ -68,8 +77,6 @@ def write_inter(pairs, dest):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=str, default="data/gowalla")
-    parser.add_argument("--valid_ratio", type=float, default=0.1,
-                        help="fraction of TRAIN carved out for early-stopping validation")
     parser.add_argument("--seed", type=int, default=2024)
     args = parser.parse_args()
 
@@ -82,16 +89,12 @@ def main():
     train_pairs = list(parse_adj_txt(raw_train))
     test_pairs = list(parse_adj_txt(raw_test))
 
-    # Carve a small validation slice out of TRAIN only. The TEST set stays
-    # exactly the paper's, so the reported test metric is comparable to Table 3.
-    rng = random.Random(args.seed)
-    rng.shuffle(train_pairs)
-    n_valid = int(len(train_pairs) * args.valid_ratio)
-    valid_pairs = train_pairs[:n_valid]
-    fit_pairs = train_pairs[n_valid:]
-
-    write_inter(fit_pairs, os.path.join(args.out, "gowalla.train.inter"))
-    write_inter(valid_pairs, os.path.join(args.out, "gowalla.valid.inter"))
+    # Mirror the LightGCN authors' protocol: train on the FULL official train
+    # split, and use the official test split for both validation (early stop)
+    # and the final report. This is what makes the test metric directly
+    # comparable to Table 3.
+    write_inter(train_pairs, os.path.join(args.out, "gowalla.train.inter"))
+    write_inter(test_pairs, os.path.join(args.out, "gowalla.valid.inter"))
     write_inter(test_pairs, os.path.join(args.out, "gowalla.test.inter"))
 
     print("\nDone. Train with:")
