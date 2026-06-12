@@ -73,7 +73,15 @@ class LightGCN(GeneralRecommender):
         # Precompute the symmetrically-normalized adjacency as a sparse tensor.
         self.norm_adj = self._build_norm_adj(dataset).to(self.device)
 
-        self.apply(xavier_uniform_initialization)
+        # Embedding init. The official LightGCN-PyTorch uses normal_(std=0.1),
+        # which reaches paper Table 3 numbers; RecBole's default xavier_uniform
+        # converges ~6% lower on Gowalla. Selectable via config "init_method".
+        init_method = config["init_method"] or "normal"
+        if init_method == "normal":
+            nn.init.normal_(self.user_embedding.weight, std=0.1)
+            nn.init.normal_(self.item_embedding.weight, std=0.1)
+        else:
+            self.apply(xavier_uniform_initialization)
 
         # Cache for full-sort evaluation; invalidated each training step.
         # Listing these in other_parameter_name makes RecBole save/restore them

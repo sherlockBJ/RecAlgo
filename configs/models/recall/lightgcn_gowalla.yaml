@@ -13,6 +13,8 @@
 embedding_size: 64        # paper uses 64-dim embeddings
 n_layers: 3               # K = 3 light graph-convolution layers (Table 3 row)
 reg_weight: 1e-4          # L2 coefficient (paper sweeps 1e-4 on Gowalla)
+init_method: normal       # normal_(std=0.1) like official LightGCN-PyTorch;
+                          # RecBole's xavier_uniform converges ~6% lower here
 
 # ---------------------------------------------------------------------------
 # Pre-split benchmark files: data/gowalla/gowalla.{train,valid,test}.inter
