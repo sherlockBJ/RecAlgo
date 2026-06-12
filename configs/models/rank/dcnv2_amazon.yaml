@@ -20,6 +20,12 @@ threshold:
   rating: 4            # label = 1 if rating >= 4 else 0 (rating dropped after)
 LABEL_FIELD: label
 
+# Raw SNAP Amazon Electronics (7.8M ratings) is extremely sparse — RecBole's
+# packaged dataset is 5-core filtered, so we reproduce that here. Without it
+# the CTR/sequence models see almost no usable user history.
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[5,inf)"
+
 # ---------------------------------------------------------------------------
 # Model hyper-parameters (RecBole DCNV2 defaults)
 # ---------------------------------------------------------------------------
