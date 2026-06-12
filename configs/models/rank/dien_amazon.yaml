@@ -1,0 +1,64 @@
+# DIEN on Amazon Electronics — Zhou et al., Deep Interest Evolution Network, AAAI 2019.
+#
+# DIEN extends DIN with a GRU-based interest extractor + AUGRU interest-evolving
+# layer, plus an AUXILIARY loss that contrasts the click sequence against a
+# NEGATIVE item sequence. Its calculate_loss AND predict both read NEG_ITEM_SEQ
+# (= NEG_PREFIX + ITEM_SEQ), so negative sampling MUST stay ON — turning it off
+# breaks DIEN regardless of eval mode.
+#
+# Same labeled-CTR override as DIN. NOTE: if DIEN's predict() errors on a missing
+# neg_item_seq under labeled mode, fall back to RecBole's default uni100 for DIEN
+# only (drop the eval_args override + threshold) and note the metric-protocol
+# difference in the report.
+#
+# Target: AUC in the ~0.82-0.87 range (benchmark sanity check).
+
+# ---------------------------------------------------------------------------
+# Dataset fields + label + sequence config
+# ---------------------------------------------------------------------------
+load_col:
+  inter: [user_id, item_id, rating, timestamp]
+threshold:
+  rating: 4
+LABEL_FIELD: label
+
+MAX_ITEM_LIST_LENGTH: 50
+ITEM_LIST_LENGTH_FIELD: item_length
+LIST_SUFFIX: _list
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters (RecBole DIEN defaults)
+# ---------------------------------------------------------------------------
+embedding_size: 10
+mlp_hidden_size: [256, 256, 256]
+dropout_prob: 0.0
+pooling_mode: mean
+gru_type: AUGRU
+alpha: 1.0                    # weight of the auxiliary interest loss
+
+# ---------------------------------------------------------------------------
+# Training (fast budget: epochs 50, patience 5)
+# ---------------------------------------------------------------------------
+epochs: 50
+train_batch_size: 4096
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:        # REQUIRED — supplies labels AND neg_item_seq
+  distribution: uniform
+  sample_num: 1
+stopping_step: 5
+loss_decimal_place: 4
+eval_step: 1
+
+# ---------------------------------------------------------------------------
+# Evaluation: labeled CTR. order:TO keeps the time-ordered sequence build.
+# ---------------------------------------------------------------------------
+eval_args:
+  order: TO
+  mode: labeled
+metrics: [AUC, LogLoss]
+valid_metric: AUC
+eval_batch_size: 40960
+
+seed: 2024
+reproducibility: true

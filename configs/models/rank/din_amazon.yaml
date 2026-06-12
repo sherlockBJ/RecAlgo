@@ -1,0 +1,61 @@
+# DIN on Amazon Electronics — Zhou et al., Deep Interest Network, KDD 2018.
+#
+# DIN is a SEQUENTIAL CTR model: point-wise, BCEWithLogitsLoss (hardcoded),
+# attention over the user behavior sequence w.r.t. the target item. RecBole
+# generates the *_list sequence fields from per-interaction rows ordered by
+# time (order:TO -> timestamp is MANDATORY).
+#
+# We override RecBole's default uni100 eval to labeled CTR (threshold-binarized
+# rating, AUC/LogLoss over the labeled split) to match the CTR-paper AUC notion.
+# Negative sampling is kept ON: the 1 uniform negative supplies point-wise 0/1
+# labels alongside the threshold labels.
+#
+# Target: AUC in the ~0.81-0.86 range (benchmark sanity check).
+
+# ---------------------------------------------------------------------------
+# Dataset fields + label + sequence config
+# ---------------------------------------------------------------------------
+load_col:
+  inter: [user_id, item_id, rating, timestamp]
+threshold:
+  rating: 4
+LABEL_FIELD: label
+
+MAX_ITEM_LIST_LENGTH: 50
+ITEM_LIST_LENGTH_FIELD: item_length
+LIST_SUFFIX: _list
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters (RecBole DIN defaults)
+# ---------------------------------------------------------------------------
+embedding_size: 10
+mlp_hidden_size: [256, 256, 256]
+dropout_prob: 0.0
+pooling_mode: mean
+
+# ---------------------------------------------------------------------------
+# Training (fast budget: epochs 50, patience 5)
+# ---------------------------------------------------------------------------
+epochs: 50
+train_batch_size: 4096
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:        # keep ON — supplies point-wise labels
+  distribution: uniform
+  sample_num: 1
+stopping_step: 5
+loss_decimal_place: 4
+eval_step: 1
+
+# ---------------------------------------------------------------------------
+# Evaluation: labeled CTR. order:TO keeps the time-ordered sequence build.
+# ---------------------------------------------------------------------------
+eval_args:
+  order: TO
+  mode: labeled
+metrics: [AUC, LogLoss]
+valid_metric: AUC
+eval_batch_size: 40960
+
+seed: 2024
+reproducibility: true

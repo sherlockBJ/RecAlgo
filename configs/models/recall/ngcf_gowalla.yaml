@@ -1,0 +1,58 @@
+# NGCF on Gowalla — Wang et al., Neural Graph Collaborative Filtering, SIGIR 2019.
+#
+# NGCF and LightGCN share the SAME fixed Gowalla train/test split (LightGCN
+# reused NGCF's), so this consumes the same benchmark atomic files prepared by
+# scripts/prepare_gowalla.py (gowalla.{train,valid,test}.inter, valid == test).
+# Same full-sort TopK paradigm as LightGCN → directly comparable side by side.
+#
+# Reproduction target (paper / LightGCN Table 3, 3 layers):
+#     Recall@20 ~ 0.157,  NDCG@20 ~ 0.133
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters (RecBole NGCF defaults = paper settings)
+# ---------------------------------------------------------------------------
+embedding_size: 64              # 0-th layer embedding dim
+hidden_size_list: [64, 64, 64]  # 3 propagation layers, each 64-dim
+node_dropout: 0.0
+message_dropout: 0.1
+reg_weight: 1e-5
+
+# ---------------------------------------------------------------------------
+# Pre-split benchmark files: data/gowalla/gowalla.{train,valid,test}.inter
+# ---------------------------------------------------------------------------
+benchmark_filename: [train, valid, test]
+load_col:
+  inter: [user_id, item_id]
+
+# ---------------------------------------------------------------------------
+# Training (BPR loss, pairwise)
+# ---------------------------------------------------------------------------
+epochs: 1000
+train_batch_size: 2048
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:
+  distribution: uniform
+  sample_num: 1
+stopping_step: 10
+loss_decimal_place: 4
+eval_step: 20
+
+# ---------------------------------------------------------------------------
+# Evaluation: full-sort ranking, top-20
+# ---------------------------------------------------------------------------
+eval_args:
+  split: {RS: [1.0, 0.0, 0.0]}   # ignored under benchmark_filename; kept for schema
+  group_by: user
+  order: RO
+  mode: full
+metrics: [Recall, NDCG]
+topk: [20]
+valid_metric: NDCG@20
+eval_batch_size: 40960
+
+# ---------------------------------------------------------------------------
+# Reproducibility
+# ---------------------------------------------------------------------------
+seed: 2024
+reproducibility: true
