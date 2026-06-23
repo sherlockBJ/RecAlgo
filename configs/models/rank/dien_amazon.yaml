@@ -3,24 +3,22 @@
 # DIEN extends DIN with a GRU-based interest extractor + AUGRU interest-evolving
 # layer, plus an AUXILIARY loss that contrasts the click sequence against a
 # NEGATIVE item sequence. Its calculate_loss AND predict both read NEG_ITEM_SEQ
-# (= NEG_PREFIX + ITEM_SEQ), so negative sampling MUST stay ON — turning it off
-# breaks DIEN regardless of eval mode.
+# (= NEG_PREFIX + ITEM_SEQ), so negative sampling MUST stay ON.
 #
-# Same labeled-CTR override as DIN. NOTE: if DIEN's predict() errors on a missing
-# neg_item_seq under labeled mode, fall back to RecBole's default uni100 for DIEN
-# only (drop the eval_args override + threshold) and note the metric-protocol
-# difference in the report.
+# Eval protocol: RecBole's NATIVE sequential_DIN scheme (auto-merged by model
+# type): LS (leave-one-out) split + uni100 negative sampling + AUC/LogLoss.
+# This is DIEN's paper-faithful AUC notion AND it keeps neg sampling on (uni100
+# supplies the neg_item_seq DIEN needs). We do NOT override to labeled/threshold:
+# forcing labeled full-set onto a sequential model destroys the leave-one-out
+# sequence structure and collapses AUC to ~random (verified: it gave 0.55).
 #
 # Target: AUC in the ~0.82-0.87 range (benchmark sanity check).
 
 # ---------------------------------------------------------------------------
-# Dataset fields + label + sequence config
+# Dataset fields + sequence config
 # ---------------------------------------------------------------------------
 load_col:
   inter: [user_id, item_id, rating, timestamp]
-threshold:
-  rating: 4
-LABEL_FIELD: label
 
 # Raw SNAP Amazon Electronics (7.8M ratings) is extremely sparse — RecBole's
 # packaged dataset is 5-core filtered, so we reproduce that here. Required for
@@ -49,21 +47,17 @@ epochs: 50
 train_batch_size: 4096
 learner: adam
 learning_rate: 0.001
-train_neg_sample_args:        # REQUIRED — supplies labels AND neg_item_seq
+train_neg_sample_args:        # REQUIRED — supplies the neg_item_seq DIEN reads
   distribution: uniform
   sample_num: 1
 stopping_step: 5
 loss_decimal_place: 4
 eval_step: 1
 
-# ---------------------------------------------------------------------------
-# Evaluation: labeled CTR. order:TO keeps the time-ordered sequence build.
-# ---------------------------------------------------------------------------
-eval_args:
-  order: TO
-  mode: labeled
-metrics: [AUC, LogLoss]
-valid_metric: AUC
+# Eval protocol comes from RecBole's auto-merged sequential_DIN.yaml:
+#   eval_args: {split: {LS: valid_and_test}, order: TO, mode: uni100}
+#   metrics: [AUC, LogLoss], valid_metric: AUC, repeatable: True
+# Left unset on purpose so the native sequential CTR scheme drives eval.
 eval_batch_size: 40960
 
 seed: 2024
