@@ -1,0 +1,64 @@
+# DeepFM on Amazon Electronics — Guo et al., DeepFM: A Factorization-Machine
+# based Neural Network for CTR Prediction, IJCAI 2017.
+#
+# DeepFM is a CONTEXT-aware (CTR) model: point-wise, BCE loss, AUC/LogLoss eval —
+# same paradigm as DCNV2. RecBole auto-merges quick_start_config/context-aware.yaml
+# based on the model type (mode:labeled, train_neg_sample_args:~, metrics:[AUC,
+# LogLoss]); we supply the fields, the rating->label threshold (REQUIRED — the only
+# label source in labeled mode), and the model hyper-parameters.
+#
+# DeepFM = FM (low-order, explicit 2nd-order feature interaction, shares the same
+# embeddings as the deep part) + DNN (high-order, implicit). Mirrors the dcnv2
+# labeled full-set protocol so the two CTR models are directly comparable here.
+#
+# Target: AUC in the ~0.78-0.85 range (benchmark sanity check, not an exact
+# paper-table match — original paper used Criteo/Company* data, not Amazon).
+
+gpu_id: '2'                     # pin to physical GPU2 (RecBole ignores shell CUDA_VISIBLE_DEVICES)
+
+# ---------------------------------------------------------------------------
+# Dataset fields + label
+# ---------------------------------------------------------------------------
+load_col:
+  inter: [user_id, item_id, rating, timestamp]
+threshold:
+  rating: 4            # label = 1 if rating >= 4 else 0 (rating dropped after)
+LABEL_FIELD: label
+
+# Raw SNAP Amazon Electronics (7.8M ratings) is extremely sparse — RecBole's
+# packaged dataset is 5-core filtered, so we reproduce that here.
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[5,inf)"
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters (RecBole DeepFM defaults)
+# ---------------------------------------------------------------------------
+embedding_size: 16
+mlp_hidden_size: [128, 128, 128]
+dropout_prob: 0.2
+
+# ---------------------------------------------------------------------------
+# Training (fast budget: epochs 50, patience 5)
+# ---------------------------------------------------------------------------
+epochs: 50
+train_batch_size: 4096
+learner: adam
+learning_rate: 0.001
+stopping_step: 5
+loss_decimal_place: 4
+eval_step: 1
+
+# ---------------------------------------------------------------------------
+# Evaluation: labeled CTR (AUC/LogLoss over the labeled test split)
+# ---------------------------------------------------------------------------
+eval_args:
+  split: {RS: [0.8, 0.1, 0.1]}
+  order: RO
+  group_by: ~
+  mode: labeled
+metrics: [AUC, LogLoss]
+valid_metric: AUC
+eval_batch_size: 40960
+
+seed: 2024
+reproducibility: true
