@@ -1,0 +1,61 @@
+# LightGCN on Amazon Electronics — UNIFIED recall benchmark config.
+#
+# Purpose: put LightGCN / NGCF / SASRec on the SAME dataset + SAME eval protocol
+# so the three TopK recall models are directly comparable. SASRec is sequential
+# and needs timestamp-ordered leave-one-out, so we align the graph models (which
+# are flexible) to SASRec's protocol rather than the other way around.
+#
+# Protocol (matches sasrec_amazon.yaml): Amazon Electronics 5-core, LS split
+# (leave-one-out), uni100 sampled ranking, Recall@10 / NDCG@10 / Hit@10 / MRR@10.
+# NOTE: this is NOT the paper's Gowalla full-sort number — see lightgcn_gowalla.yaml
+# for the paper-faithful run. This config exists purely for the cross-model
+# comparison table on a common dataset.
+
+gpu_id: '1'                     # pin to physical GPU1 (RecBole ignores shell CUDA_VISIBLE_DEVICES)
+
+# ---------------------------------------------------------------------------
+# Dataset fields (timestamp REQUIRED for LS leave-one-out ordering)
+# ---------------------------------------------------------------------------
+load_col:
+  inter: [user_id, item_id, rating, timestamp]
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[5,inf)"
+
+# ---------------------------------------------------------------------------
+# Model hyper-parameters (RecBole LightGCN defaults)
+# ---------------------------------------------------------------------------
+embedding_size: 64
+n_layers: 3
+reg_weight: 1e-4
+init_method: normal
+
+# ---------------------------------------------------------------------------
+# Training (BPR loss, pairwise)
+# ---------------------------------------------------------------------------
+epochs: 50
+train_batch_size: 4096
+learner: adam
+learning_rate: 0.001
+train_neg_sample_args:
+  distribution: uniform
+  sample_num: 1
+stopping_step: 10
+loss_decimal_place: 4
+eval_step: 1
+
+# ---------------------------------------------------------------------------
+# Evaluation: leave-one-out + 100-negative sampled ranking, top-10
+# (identical to sasrec_amazon.yaml for a fair cross-model comparison)
+# ---------------------------------------------------------------------------
+eval_args:
+  split: {LS: valid_and_test}
+  order: TO
+  mode: uni100
+  group_by: user
+metrics: [Recall, NDCG, Hit, MRR]
+topk: [10]
+valid_metric: NDCG@10
+eval_batch_size: 40960
+
+seed: 2024
+reproducibility: true
